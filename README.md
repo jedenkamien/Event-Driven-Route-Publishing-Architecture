@@ -16,7 +16,7 @@ A layered architecture where each responsibility is isolated, testable, and inde
 - **Template Method** eliminates duplication in the publishing workflow
 - **Null Object** enables graceful handling of unsupported transportation modes
 
-![Architecture Flow](diagrams/architecture-flow.png)
+![Architecture Flow](diagrams/architecture-flow.mermaid)
 
 ## Key Achievements
 
