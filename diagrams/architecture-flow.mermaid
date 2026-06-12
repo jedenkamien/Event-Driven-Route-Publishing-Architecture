@@ -1,0 +1,93 @@
+%%{init: {"theme": "default", "flowchart": {"curve": "orthogonal"}}}%%
+flowchart TD
+    %% ============================================================
+    %% EVENT ENTRY POINTS
+    %% ============================================================
+    EV_CREATE([RouteStrategyCreatedEvent]):::event
+    EV_UPDATE([RouteStrategyUpdatedEvent]):::event
+    EV_DELETE([RouteStrategyDeletedEvent]):::event
+
+    %% ============================================================
+    %% LAYER 1: FACADE / COORDINATOR
+    %% ============================================================
+    FACADE["RouteStrategyChangedPublishService\n──────────────────────────────\n▸ ProcessRouteStrategyCreatedEvent()\n▸ ProcessRouteStrategyUpdatedEvent()\n▸ ProcessRouteStrategyDeletedEvent()"]:::facade
+
+    %% ============================================================
+    %% LAYER 2: STRATEGY FACTORY
+    %% ============================================================
+    PICKER["RoutingStrategyPicker\n──────────────────────────────\n▸ Pick(routeStrategy)\n▸ InitializeStrategies()\n▸ GetAvailableTransportationModes()"]:::factory
+
+    %% ============================================================
+    %% LAYER 3: STRATEGY SELECTION OUTCOME
+    %% ============================================================
+    NULL_CHECK{Is strategy\nnull?}:::decision
+    NULL_RETURN([Return — mode not supported\nNull Object Pattern]):::nullreturn
+
+    %% ============================================================
+    %% LAYER 4: CONCRETE STRATEGIES
+    %% ============================================================
+    S_WALK["WalkingRouteChangedPublisher\n──────────────────────────────\nPedestrian paths\nAccessibility features\nShortest distance preference"]:::strategy
+    S_DRIVE["DrivingRouteChangedPublisher\n──────────────────────────────\nRoad network routing\nTraffic-aware\nFastest / optimal route"]:::strategy
+    S_BIKE["BicycleRouteChangedPublisher\n──────────────────────────────\nBike lane routing\nElevation considerations\nSafety priority"]:::strategy
+    S_TRANSIT["PublicTransitRouteChangedPublisher\n──────────────────────────────\nSchedule-based routing\nTransfers & fares\nReal-time updates"]:::strategy
+    S_EXT["⊕  TaxiRouteChangedPublisher\n⊕  ScooterRouteChangedPublisher\n⊕  FlightRouteChangedPublisher\n(easily added — no changes needed)"]:::extensible
+
+    %% ============================================================
+    %% LAYER 5: TEMPLATE METHOD HELPER
+    %% ============================================================
+    SUPPORTER["PublishingSupporter\n──────────────────────────────\n1. Create base message (common)\n2. Apply mode-specific transform (delegate ↓)\n3. Publish to messaging infra (common)\n4. Log success / handle errors (common)"]:::template
+
+    %% ============================================================
+    %% LAYER 6: MESSAGE CREATION DELEGATES (variable parts)
+    %% ============================================================
+    D_WALK["CreateDetailedMessage\n&lt;WalkingRouteCreatedMessage&gt;"]:::delegate
+    D_DRIVE["CreateDetailedMessage\n&lt;DrivingRouteCreatedMessage&gt;"]:::delegate
+    D_BIKE["CreateDetailedMessage\n&lt;BicycleRouteCreatedMessage&gt;"]:::delegate
+    D_TRANSIT["CreateDetailedMessage\n&lt;PublicTransitRouteCreatedMessage&gt;"]:::delegate
+
+    %% ============================================================
+    %% LAYER 7: INFRASTRUCTURE
+    %% ============================================================
+    INFRA["IMessagePublisher\n──────────────────────────────\nPublishAsync(message, sessionId, ct)"]:::infra
+
+    %% ============================================================
+    %% CONNECTIONS
+    %% ============================================================
+    EV_CREATE --> FACADE
+    EV_UPDATE --> FACADE
+    EV_DELETE --> FACADE
+
+    FACADE -->|"Pick(routeStrategy)"| PICKER
+    PICKER --> NULL_CHECK
+    NULL_CHECK -->|"null"| NULL_RETURN
+    NULL_CHECK -->|"strategy found"| S_WALK
+    NULL_CHECK -->|"strategy found"| S_DRIVE
+    NULL_CHECK -->|"strategy found"| S_BIKE
+    NULL_CHECK -->|"strategy found"| S_TRANSIT
+    NULL_CHECK -.->|"extensible"| S_EXT
+
+    S_WALK  -->|"Publish(delegate, ...)"| SUPPORTER
+    S_DRIVE -->|"Publish(delegate, ...)"| SUPPORTER
+    S_BIKE  -->|"Publish(delegate, ...)"| SUPPORTER
+    S_TRANSIT -->|"Publish(delegate, ...)"| SUPPORTER
+
+    SUPPORTER -->|"step 2 — injected"| D_WALK
+    SUPPORTER -->|"step 2 — injected"| D_DRIVE
+    SUPPORTER -->|"step 2 — injected"| D_BIKE
+    SUPPORTER -->|"step 2 — injected"| D_TRANSIT
+
+    SUPPORTER -->|"step 3"| INFRA
+
+    %% ============================================================
+    %% STYLE CLASSES
+    %% ============================================================
+    classDef event       fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f,rx:20
+    classDef facade      fill:#ede9fe,stroke:#7c3aed,color:#2e1065,font-weight:bold
+    classDef factory     fill:#fef9c3,stroke:#ca8a04,color:#713f12,font-weight:bold
+    classDef decision    fill:#fff7ed,stroke:#ea580c,color:#7c2d12
+    classDef nullreturn  fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,rx:10
+    classDef strategy    fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef extensible  fill:#f0fdf4,stroke:#86efac,color:#14532d,stroke-dasharray:5 5
+    classDef template    fill:#fce7f3,stroke:#db2777,color:#500724,font-weight:bold
+    classDef delegate    fill:#fff1f2,stroke:#f43f5e,color:#881337
+    classDef infra       fill:#f1f5f9,stroke:#64748b,color:#1e293b
